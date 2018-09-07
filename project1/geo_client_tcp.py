@@ -11,8 +11,18 @@ PORT = 4300
 
 def client():
     '''Main client loop'''
-    # TODO: Implement client-side tasks
-    pass
+    with socket(AF_INET, SOCK_STREAM) as s:
+        s.connect((HOST, PORT))
+        s.sendall("Initial handshake".encode())
+        data = s.recv(1024)
+        print(data.decode())
+        while data.decode() != ">BYE":
+            request = input()
+            s.sendall(request.encode())
+            data = s.recv(1024)
+            print(data.decode())
+        s.close()
+        #print("SAFE!")
 
 def main():
     '''Main function'''
