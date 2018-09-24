@@ -33,23 +33,32 @@ PUBLIC_DNS_SERVER = [
 
 def val_to_2_bytes(value: int) -> list:
     '''Split a value into 2 bytes'''
-    raise NotImplementedError
+    bytelist = [None, None]
+    bytelist[1] = value & 0xFF
+    bytelist[0] = value >> 8 & 0xFF
+    return bytelist
 
 def val_to_n_bytes(value: int, n_bytes: int) -> list:
     '''Split a value into n bytes'''
-    raise NotImplementedError
+    bytelist = [None] * n_bytes
+    for i in range(0, n_bytes):
+        bytelist[n_bytes - 1 - i] = (value >> (8*i)) & 0xFF
+    return bytelist
 
 def bytes_to_val(bytes_lst: list) -> int:
-    '''Merge 2 bytes into a value'''
-    raise NotImplementedError
+    '''Merge n bytes into a value'''
+    sum = 0
+    for i in range(0, len(bytes_lst)):
+        sum += bytes_lst[len(bytes_lst) - 1 - i] << (8*i)
+    return sum
 
 def get_2_bits(bytes_lst: list) -> int:
     '''Extract first two bits of a two-byte sequence'''
-    raise NotImplementedError
+    return (bytes_lst[0] & 0xC0) >> 6
 
 def get_offset(bytes_lst: list) -> int:
     '''Extract size of the offset from a two-byte sequence'''
-    raise NotImplementedError
+    return ((bytes_lst[0] & 0x3f) << 8) + bytes_lst[1]
 
 def parse_cli_query(filename, q_type, q_domain, q_server=None) -> tuple:
     '''Parse command-line query'''
