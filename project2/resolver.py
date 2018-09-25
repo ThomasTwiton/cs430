@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import struct
 from random import randint, choice, seed
 from socket import socket, SOCK_DGRAM, AF_INET
 
@@ -62,11 +63,48 @@ def get_offset(bytes_lst: list) -> int:
 
 def parse_cli_query(filename, q_type, q_domain, q_server=None) -> tuple:
     '''Parse command-line query'''
-    raise NotImplementedError
+    if q_type in ['A', 'AAAA']:
+        parsed_type = DNS_TYPES[q_type]
+    elif q_type in ['MX', 'CNAME', 'NS', 'PTR', 'TXT']:
+        raise ValueError("Unknown query type")
+    else:
+        raise Exception("Invalid DNS type")
+
+    parsed_domain = q_domain.split('.')
+
+    if q_server == None:
+        parsed_server = PUBLIC_DNS_SERVER[randint(0,9)]
+    else:
+        parsed_server = q_server
+
+    return (parsed_type, parsed_domain, q_server)
 
 def format_query(q_type: int, q_domain: list) -> bytearray:
     '''Format DNS query'''
-    raise NotImplementedError
+    query = bytearray()
+
+    #trans id
+    trans_id = randint(0,65535)
+    query.extend(val_to_2_bytes(trans_id))
+
+    #flags(0100), questions(0001), RRs (3x 0000)
+    query.extend([1,0,0,1,0,0,0,0,0,0])
+
+    #domain name
+    for domain in q_domain:
+        query.extend([len(domain)])
+        byte_domain = bytes(domain, 'utf-8')
+        query.extend(byte_domain)
+    query.extend([0])
+
+    #type
+    query.extend(val_to_2_bytes(q_type))
+
+    #class IN
+    query.extend([0,1])
+
+    return query
+
 
 def send_request(q_message: bytearray, q_server: str) -> bytes:
     '''Contact the server'''
@@ -79,7 +117,8 @@ def send_request(q_message: bytearray, q_server: str) -> bytes:
 
 def parse_response(resp_bytes: bytes):
     '''Parse server response'''
-    raise NotImplementedError
+    print(get_offset(resp_bytes))
+    
 
 def parse_answers(resp_bytes: bytes, offset: int, rr_ans: int) -> list:
     '''Parse DNS server answers'''
