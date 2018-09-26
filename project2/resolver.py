@@ -77,7 +77,7 @@ def parse_cli_query(filename, q_type, q_domain, q_server=None) -> tuple:
     else:
         parsed_server = q_server
 
-    return (parsed_type, parsed_domain, q_server)
+    return (parsed_type, parsed_domain, parsed_server)
 
 def format_query(q_type: int, q_domain: list) -> bytearray:
     '''Format DNS query'''
@@ -117,20 +117,63 @@ def send_request(q_message: bytearray, q_server: str) -> bytes:
 
 def parse_response(resp_bytes: bytes):
     '''Parse server response'''
-    print(get_offset(resp_bytes))
+    response_string = resp_bytes.hex()
+    response_list_str16 = [response_string[i:i+2] for i in range(0, len(response_string),2)]
+    response_list_10 = [int(response_list_str16[i],16) for i in range(0, len(response_list_str16))]
     
+    #number of answers in response
+    num_answers = bytes_to_val(response_list_10[6:8])
 
+    #domain name that was queried
+    index = 12
+    domains = []
+    while response_list_10[index] != 0:
+        name_length = response_list_10[index]
+        name_string = (response_list_10[index+1:(index + name_length +1)])
+        name_string = [chr(name_string[i]) for i in range(0, len(name_string))]
+        domains.append(''.join(name_string))
+
+        index = index+name_length+1
+    domain_name = '.'.join(domains)
+
+    index += 5 #get to the start of the answers section
+    answers_read = 0
+    answers = []
+    while answers_read < num_answers:
+        this_answer = [None] *3
+
+        this_answer[0] = domain_name        
+        answer_type = bytes_to_val(response_list_10[index+2:index+4])
+        this_answer[1] = bytes_to_val(response_list_10[index+6:index+10]) #TTL
+
+        address_length = bytes_to_val(response_list_10[index+10:index+12])
+        address_list = response_list_10[index+12:(index+address_length+12)]
+
+        if answer_type == DNS_TYPES['A']:
+            address_list = response_list_10[index+12:(index+address_length+12)]
+            address_list =[str(address_list[i]) for i in range(0, len(address_list))]
+        if answer_type == DNS_TYPES['AAAA']:
+            address_list = response_list_str16[index+12:(index+address_length+12)]
+            address_list = [''.join(address_list[i:i+2]) for i in range(0, len(address_list),2)]
+
+        this_answer[2] = '.'.join(address_list) #address
+        
+        answers.append(this_answer)
+        answers_read += 1
+        index = index + 12 + address_length
+    
+    return answers
 def parse_answers(resp_bytes: bytes, offset: int, rr_ans: int) -> list:
     '''Parse DNS server answers'''
-    raise NotImplementedError
+    pass #sorry Roman, I didn't see these before I finished implementing parse_response as a single function
 
 def parse_address_a(addr_len: int, addr_bytes: bytes) -> str:
     '''Extract IPv4 address'''
-    raise NotImplementedError
+    pass #sorry Roman, I didn't see these before I finished implementing parse_response as a single function
 
 def parse_address_aaaa(addr_len: int, addr_bytes: bytes) -> str:
     '''Extract IPv6 address'''
-    raise NotImplementedError
+    pass #sorry Roman, I didn't see these before I finished implementing parse_response as a single function
 
 def resolve(query: str) -> None:
     '''Resolve the query'''
