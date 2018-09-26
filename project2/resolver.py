@@ -154,7 +154,10 @@ def parse_response(resp_bytes: bytes):
             address_list =[str(address_list[i]) for i in range(0, len(address_list))]
         if answer_type == DNS_TYPES['AAAA']:
             address_list = response_list_str16[index+12:(index+address_length+12)]
-            address_list = [''.join(address_list[i:i+2]) for i in range(0, len(address_list),2)]
+            address_list = [''.join(address_list[i:i+2]) for i in range(0, len(address_list),2)]  
+            for i in range(0,len(address_list)):      
+                stripped = hex(int(address_list[i],16))[2:]
+                address_list[i] = stripped
 
         this_answer[2] = '.'.join(address_list) #address
         
@@ -163,6 +166,7 @@ def parse_response(resp_bytes: bytes):
         index = index + 12 + address_length
     
     return answers
+
 def parse_answers(resp_bytes: bytes, offset: int, rr_ans: int) -> list:
     '''Parse DNS server answers'''
     pass #sorry Roman, I didn't see these before I finished implementing parse_response as a single function
