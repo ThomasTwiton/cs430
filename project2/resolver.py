@@ -150,9 +150,13 @@ def parse_response(resp_bytes: bytes):
             while len_domain != 0:
                 a_domain = []
                 a_domain.append(response_list_10[index+1:index+len_domain])
+                a_domain = [chr(a_domain[i]) for i in range(0, len(a_domain))]
+                a_domain_str = ''.join(a_domain)
+                domain_list.append(a_domain_str)
                 index += len_domain + 1
                 len_domain = response_list_10[index]
             index -= 1
+            this_answer[0] = ''.join(domain_list)
         this_answer[0] = domain_name        
         answer_type = bytes_to_val(response_list_10[index+2:index+4])
         this_answer[1] = bytes_to_val(response_list_10[index+6:index+10]) #TTL
