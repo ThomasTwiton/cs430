@@ -142,8 +142,21 @@ def parse_response(resp_bytes: bytes):
     while answers_read < num_answers:
         this_answer = [None] *3
 
+        #name located at pointer
         if get_2_bits([response_list_10[index]]) == 3:
-            this_answer[0] = domain_name
+            name_index = get_offset(response_list_10[index:index+2])
+            a_domains = []
+            while response_list_10[name_index] != 0:
+                name_length = response_list_10[name_index]
+                name_string = (response_list_10[name_index+1:(name_index + name_length +1)])
+                name_string = [chr(name_string[i]) for i in range(0, len(name_string))]
+                a_domains.append(''.join(name_string))
+
+                name_index = name_index+name_length+1
+            a_domain_name = '.'.join(domains)
+
+            this_answer[0] = a_domain_name
+        #name located directly in answer    
         else:
             domain_list_ = []
             len_domain = response_list_10[index]
@@ -167,14 +180,14 @@ def parse_response(resp_bytes: bytes):
         if answer_type == DNS_TYPES['A']:
             address_list = response_list_10[index+12:(index+address_length+12)]
             address_list =[str(address_list[i]) for i in range(0, len(address_list))]
+            this_answer[2] = '.'.join(address_list) #address
         if answer_type == DNS_TYPES['AAAA']:
             address_list = response_list_str16[index+12:(index+address_length+12)]
             address_list = [''.join(address_list[i:i+2]) for i in range(0, len(address_list),2)]  
             for i in range(0,len(address_list)):      
                 stripped = hex(int(address_list[i],16))[2:]
                 address_list[i] = stripped
-
-        this_answer[2] = '.'.join(address_list) #address
+            this_answer[2] = ':'.join(address_list) #address
         
         answers.append(this_answer)
         answers_read += 1
@@ -188,11 +201,28 @@ def parse_answers(resp_bytes: bytes, offset: int, rr_ans: int) -> list:
 
 def parse_address_a(addr_len: int, addr_bytes: bytes) -> str:
     '''Extract IPv4 address'''
-    pass #sorry Roman, I didn't see these before I finished implementing parse_response as a single function
+    #sorry Roman, I didn't see these before I finished implementing parse_response as a single function
+    #implemented to pass tests, but not used (mostly copy pasted from above)
+    addr_str = addr_bytes.hex()
+    addr_list_str16 = [addr_str[i:i+2] for i in range(0, len(addr_str),2)]
+    addr_list_10 = [int(addr_list_str16[i],16) for i in range(0, len(addr_list_str16))]
+
+    address_list =[str(addr_list_10[i]) for i in range(0, len(addr_list_10))]
+    return '.'.join(address_list)
 
 def parse_address_aaaa(addr_len: int, addr_bytes: bytes) -> str:
     '''Extract IPv6 address'''
-    pass #sorry Roman, I didn't see these before I finished implementing parse_response as a single function
+    #sorry Roman, I didn't see these before I finished implementing parse_response as a single function
+    #implemented to pass tests, but not used (mostly copy pasted from above)
+    addr_str = addr_bytes.hex()
+    addr_list_str16 = [addr_str[i:i+2] for i in range(0, len(addr_str),2)]
+    addr_list_10 = [int(addr_list_str16[i],16) for i in range(0, len(addr_list_str16))]
+
+    address_list = [''.join(addr_list_str16[i:i+2]) for i in range(0, len(addr_list_str16)-1,2)]  
+    for i in range(0,len(address_list)):      
+        stripped = hex(int(address_list[i],16))[2:]
+        address_list[i] = stripped
+    return ':'.join(address_list) #address
 
 def resolve(query: str) -> None:
     '''Resolve the query'''
