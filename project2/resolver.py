@@ -158,19 +158,18 @@ def parse_response(resp_bytes: bytes):
             this_answer[0] = a_domain_name
         #name located directly in answer    
         else:
-            domain_list_ = []
-            len_domain = response_list_10[index]
-            while len_domain != 0:
-                a_domain = []
-                a_domain.append(response_list_10[index+1:index+len_domain])
-                a_domain = [chr(a_domain[i]) for i in range(0, len(a_domain))]
-                a_domain_str = ''.join(a_domain)
-                domain_list.append(a_domain_str)
-                index += len_domain + 1
-                len_domain = response_list_10[index]
-            index -= 1
-            this_answer[0] = ''.join(domain_list)
-        this_answer[0] = domain_name        
+            domains = []
+            while response_list_10[index] != 0:
+                name_length = response_list_10[index]
+                name_string = (response_list_10[index+1:(index + name_length +1)])
+                name_string = [chr(name_string[i]) for i in range(0, len(name_string))]
+                domains.append(''.join(name_string))
+
+                index = index+name_length+1
+            domain_name = '.'.join(domains)
+            this_answer[0] = domain_name
+
+                   
         answer_type = bytes_to_val(response_list_10[index+2:index+4])
         this_answer[1] = bytes_to_val(response_list_10[index+6:index+10]) #TTL
 
@@ -192,12 +191,96 @@ def parse_response(resp_bytes: bytes):
         answers.append(this_answer)
         answers_read += 1
         index = index + 12 + address_length
-    
-    return answers
+
+    tuple_answers = []
+    for answer in answers:
+        tuple_answers.append(tuple(answer))
+    return tuple_answers
 
 def parse_answers(resp_bytes: bytes, offset: int, rr_ans: int) -> list:
     '''Parse DNS server answers'''
-    pass #sorry Roman, I didn't see these before I finished implementing parse_response as a single function
+    #sorry Roman, I didn't see these before I finished implementing parse_response as a single function
+    #implemented to pass tests, but not used (mostly copy pasted from above)
+
+    response_string = resp_bytes.hex()
+    response_list_str16 = [response_string[i:i+2] for i in range(0, len(response_string),2)]
+    response_list_10 = [int(response_list_str16[i],16) for i in range(0, len(response_list_str16))]
+    
+    #number of answers in response
+    num_answers = bytes_to_val(response_list_10[6:8])
+
+    #domain name that was queried
+    index = 12
+    domains = []
+    while response_list_10[index] != 0:
+        name_length = response_list_10[index]
+        name_string = (response_list_10[index+1:(index + name_length +1)])
+        name_string = [chr(name_string[i]) for i in range(0, len(name_string))]
+        domains.append(''.join(name_string))
+
+        index = index+name_length+1
+    domain_name = '.'.join(domains)
+
+    index += 5 #get to the start of the answers section
+    answers_read = 0
+    answers = []
+    while answers_read < num_answers:
+        this_answer = [None] *3
+
+        #name located at pointer
+        if get_2_bits([response_list_10[index]]) == 3:
+            name_index = get_offset(response_list_10[index:index+2])
+            a_domains = []
+            while response_list_10[name_index] != 0:
+                name_length = response_list_10[name_index]
+                name_string = (response_list_10[name_index+1:(name_index + name_length +1)])
+                name_string = [chr(name_string[i]) for i in range(0, len(name_string))]
+                a_domains.append(''.join(name_string))
+
+                name_index = name_index+name_length+1
+            a_domain_name = '.'.join(domains)
+
+            this_answer[0] = a_domain_name
+        #name located directly in answer    
+        else:
+            domains = []
+            while response_list_10[index] != 0:
+                name_length = response_list_10[index]
+                name_string = (response_list_10[index+1:(index + name_length +1)])
+                name_string = [chr(name_string[i]) for i in range(0, len(name_string))]
+                domains.append(''.join(name_string))
+
+                index = index+name_length+1
+            domain_name = '.'.join(domains)
+            this_answer[0] = domain_name
+
+                   
+        answer_type = bytes_to_val(response_list_10[index+2:index+4])
+        this_answer[1] = bytes_to_val(response_list_10[index+6:index+10]) #TTL
+
+        address_length = bytes_to_val(response_list_10[index+10:index+12])
+        address_list = response_list_10[index+12:(index+address_length+12)]
+
+        if answer_type == DNS_TYPES['A']:
+            address_list = response_list_10[index+12:(index+address_length+12)]
+            address_list =[str(address_list[i]) for i in range(0, len(address_list))]
+            this_answer[2] = '.'.join(address_list) #address
+        if answer_type == DNS_TYPES['AAAA']:
+            address_list = response_list_str16[index+12:(index+address_length+12)]
+            address_list = [''.join(address_list[i:i+2]) for i in range(0, len(address_list),2)]  
+            for i in range(0,len(address_list)):      
+                stripped = hex(int(address_list[i],16))[2:]
+                address_list[i] = stripped
+            this_answer[2] = ':'.join(address_list) #address
+        
+        answers.append(this_answer)
+        answers_read += 1
+        index = index + 12 + address_length
+
+    tuple_answers = []
+    for answer in answers:
+        tuple_answers.append(tuple(answer))
+    return tuple_answers
 
 def parse_address_a(addr_len: int, addr_bytes: bytes) -> str:
     '''Extract IPv4 address'''
