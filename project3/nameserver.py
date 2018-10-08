@@ -148,7 +148,8 @@ def parse_request(origin: str, msg_req: bytes) -> tuple:
 def format_response(zone: dict, trans_id: int, qry_name: str, qry_type: int, qry: bytearray) -> bytearray:
     '''Format the response'''
     response = bytearray()
-
+    answers = zone[qry_name]
+    print(answers)
     #trans id
     trans_id = randint(0,65535)
     response.extend(val_to_bytes(trans_id, 2))
@@ -156,7 +157,10 @@ def format_response(zone: dict, trans_id: int, qry_name: str, qry_type: int, qry
     #flags(8180), questions(0001), answers (varies), authority and additional (2x 0000)
     response.extend([129,128,0,1])
 
-    num_answers = len(zone[qry_name])
+    num_answers = 0
+    for answer in answers:
+        if answer[2] == DNS_TYPES[qry_type]:
+            num_answers+=1
     response.extend(val_to_bytes(num_answers,2))
 
     response.extend([0,0,0,0])
@@ -164,6 +168,46 @@ def format_response(zone: dict, trans_id: int, qry_name: str, qry_type: int, qry
     #original query
     response.extend(qry)
 
+    #answers
+    for answer in answers:
+        if answer[2] == DNS_TYPES[qry_type]:
+            #print(answer)
+            #name pointer
+            response.extend([192, 12])
+            #type
+            if answer[2] == 'A':
+                response.extend([0,1])
+            elif answer[2] == 'AAAA':
+                response.extend(val_to_bytes(28,2))
+            else:
+                raise ValueError('Unknown query type')
+            #class
+            if answer[1] == 'IN':
+                response.extend([0,1])
+            else:
+                raise ValueError('Unknown class')
+            #ttl
+            response.extend(val_to_bytes(answer[0],4))
+            #datalength and address
+            if answer[2] == DNS_TYPES[1]:
+                ip4 = answer[3].split('.')
+                data_length = len(ip4)
+                ip4 = [int(ip4[i]) for i in range(0, data_length)]
+                response.extend(val_to_bytes(data_length,2))
+                for i in range(0, data_length):
+                    response.extend(val_to_bytes(ip4[i], 1))
+            elif answer[2] == DNS_TYPES[28]:
+                ip6 = answer[3].split(':')
+                data_length = len(ip6)
+                print(ip6)
+                ip6 = [int(ip6[i],16) for i in range(0, data_length)]
+                print(ip6)
+                response.extend(val_to_bytes(data_length*2,2))
+                for i in range(0, len(ip6)):
+                    response.extend(val_to_bytes(ip6[i], 2))
+            else:
+                raise ValueError('Unknown address type')
+    
     print(response)
     return response
 
