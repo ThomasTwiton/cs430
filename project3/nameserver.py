@@ -70,7 +70,7 @@ def read_zone_file(filename: str) -> tuple:
     zone = dict()
     with open(filename) as zone_file:
         origin = zone_file.readline().split()[1].rstrip('.')
-        default = zone_file.readline().split()[1].rstrip('.')
+        default = TTL_SEC[zone_file.readline().split()[1].rstrip('.')]
 
         domain = ''
         answers = []
