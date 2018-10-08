@@ -149,7 +149,7 @@ def format_response(zone: dict, trans_id: int, qry_name: str, qry_type: int, qry
     '''Format the response'''
     response = bytearray()
     answers = zone[qry_name]
-    print(answers)
+    #print(answers)
     #trans id
     trans_id = randint(0,65535)
     response.extend(val_to_bytes(trans_id, 2))
@@ -199,16 +199,14 @@ def format_response(zone: dict, trans_id: int, qry_name: str, qry_type: int, qry
             elif answer[2] == DNS_TYPES[28]:
                 ip6 = answer[3].split(':')
                 data_length = len(ip6)
-                print(ip6)
                 ip6 = [int(ip6[i],16) for i in range(0, data_length)]
-                print(ip6)
                 response.extend(val_to_bytes(data_length*2,2))
                 for i in range(0, len(ip6)):
                     response.extend(val_to_bytes(ip6[i], 2))
             else:
                 raise ValueError('Unknown address type')
     
-    print(response)
+    #print(response)
     return response
 
 
