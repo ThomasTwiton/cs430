@@ -151,11 +151,11 @@ def format_response(zone: dict, trans_id: int, qry_name: str, qry_type: int, qry
     answers = zone[qry_name]
     #print(answers)
     #trans id
-    trans_id = randint(0,65535)
+    #trans_id = randint(0,65535)
     response.extend(val_to_bytes(trans_id, 2))
 
     #flags(8180), questions(0001), answers (varies), authority and additional (2x 0000)
-    response.extend([129,128,0,1])
+    response.extend([129,0,0,1])
 
     num_answers = 0
     for answer in answers:
