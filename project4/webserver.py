@@ -61,7 +61,7 @@ def main():
             response += ("Date:" + str(datetime.now()) + '\r\n')
             response += ("Last-Modified: Wed Aug 29 11:00:00 2018 \r\n")
             response += ("Server: CS430-ROMAN \r\n")
-            response += ("\r\n")
+            response += ("\r\n\r\n")
             response += alice
             conn.sendall(response.encode())
         conn.close()
