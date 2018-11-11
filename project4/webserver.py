@@ -25,7 +25,8 @@ def main():
         #first line
         datalist = str(data[0]).split('\\r\\n')
         first_line = datalist[0][2:]
-        print(first_line)
+        print(datalist)
+        print(first_line) 
         first_line = first_line.split()
         http_type = first_line[0]
         file_req =  first_line[1]
@@ -64,9 +65,7 @@ def main():
             response += ("\r\n\r\n")
             response += alice
             conn.sendall(response.encode())
-        conn.close()
-
-
+        
 
     server.close()
     print("We did it")
