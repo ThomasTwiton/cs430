@@ -48,13 +48,15 @@ def main():
             log.write(str(datetime.now())+' | '+file_req+' | '+client_address+' | '+headers['User-Agent']+'\n')
             log.close()
 
-            #if not a GET request, we don't know what to do
+            #if not a GET request, we don't provide that service
             if http_type != "GET":
                 #return 405
                 conn.sendall("HTTP/1.1 405 Method Not Allowed\r\n\r\n<html><head></head><body><h1>405 Method Not Allowed</h1></body></html>".encode())
+                conn.close()
             elif file_req != "/alice30.txt":
                 #return 404
                 conn.sendall("HTTP/1.1 404 Not Found\r\n\r\n<html><head></head><body><h1>404 Not Found</h1></body></html>".encode())
+                conn.close()
             else:
                 #return the text file
                 alice_file =  open("alice30.txt", 'r')
@@ -69,7 +71,7 @@ def main():
                 response += ("\r\n\r\n")
                 response += alice
                 conn.sendall(response.encode())
-            conn.close()
+                conn.close()
         
 
     server.close()
