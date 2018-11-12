@@ -25,7 +25,8 @@ def main():
         #first line
         datalist = str(data[0]).split('\\r\\n')
         if len(datalist) < 4: #sometimes Chrome sends me an empty string (b'')
-            conn.sendall("HTTP/1.1 404 Not Found \r\n \r\n".encode())
+            conn.sendall("HTTP/1.1 404 Not Found\r\n\r\n<html><head></head><body><h1>404 Not Found</h1></body></html>".encode())
+            conn.close()
         else:
             first_line = datalist[0][2:]
             #print(datalist)
@@ -50,10 +51,10 @@ def main():
             #if not a GET request, we don't know what to do
             if http_type != "GET":
                 #return 405
-                conn.sendall("HTTP/1.1 405 Method Not Allowed \r\n".encode())
+                conn.sendall("HTTP/1.1 405 Method Not Allowed\r\n\r\n<html><head></head><body><h1>405 Method Not Allowed</h1></body></html>".encode())
             elif file_req != "/alice30.txt":
                 #return 404
-                conn.sendall("HTTP/1.1 404 Not Found \r\n".encode())
+                conn.sendall("HTTP/1.1 404 Not Found\r\n\r\n<html><head></head><body><h1>404 Not Found</h1></body></html>".encode())
             else:
                 #return the text file
                 alice_file =  open("alice30.txt", 'r')
@@ -68,7 +69,8 @@ def main():
                 response += ("\r\n\r\n")
                 response += alice
                 conn.sendall(response.encode())
-        conn.close()
+            conn.close()
+        
 
     server.close()
     print("We did it")
