@@ -74,7 +74,7 @@ def parse_reply(
             ipheader_length = version_length & 0xF
             icmp_index = ipheader_length * 4
             rep_type = pkt_rcvd[icmp_index]
-            if rep_type == 3: #type of 3 means Destination Unavailable
+            if rep_type == 3: #ICMP type == 3 means 'Destination Unavailable'
                 #in the case of ripe.net
                 #seems to be sent from 80.249.208.71 after 3 unsuccesful requests
                 #not a Wrong Sender error, just ripe.net trying to tell us to shut up
