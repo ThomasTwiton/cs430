@@ -72,11 +72,68 @@ def parse_reply(
         if addr[0] != addr_dst:
             raise ValueError(f"Wrong sender: {addr[0]}")
         # TODO: Extract ICMP header from the IP packet and parse it
-        # print_raw_bytes(pkt_rcvd)
+        
+        #print_raw_bytes(pkt_rcvd)
+
+        #IPv4
+        version_length = pkt_rcvd[0] #should be 4
+        #print(version_length)
+        version = version_length >> 4
+        #print(version)
+        ipheader_length = version_length & 0xF
+        #print(ipheader_length)
+        total_length = pkt_rcvd[2:4]
+        ip_id = pkt_rcvd[4:6]
+        ttl = pkt_rcvd[8]
+        protocol = pkt_rcvd[9] #1 == ICMP
+        ip_checksum = pkt_rcvd[10:12]
+        dest_ip = pkt_rcvd[12:16] #who we pinged, technically the 'source' of this reply
+        source_ip = pkt_rcvd[16:20] #us, techincally the 'destination' of this reply
+        
+        #ICMP 
+        icmp_index = ipheader_length * 4
+        rep_type = pkt_rcvd[icmp_index]
+        #print(rep_type)
+        if rep_type != ECHO_REPLY_TYPE:
+            raise ValueError(f"Wrong type: {ECHO_REPLY_TYPE}")
+        rep_code = pkt_rcvd[icmp_index + 1]
+        #print(rep_code)
+        if rep_code != ECHO_REPLY_CODE:
+            raise ValueError(f"Wrong code: {ECHO_REPLY_CODE}")
+
+
+
+        rep_checksum = pkt_rcvd[(icmp_index +2):(icmp_index+4)]
+        packet_checksum = rep_checksum[0] * 16 ** 2 + rep_checksum[1]
+        #print("Packet's checksum:", packet_checksum)
+        pkt_precheck = pkt_rcvd[0:icmp_index+2] + pkt_rcvd[icmp_index+4:]
+        #print(pkt_precheck)
+        calc_checksum = checksum(pkt_precheck)
+        #print("Calculated checksum:",calc_checksum)  
+        if packet_checksum != calc_checksum:
+            raise ValueError(f"Wrong checksum: {calc_checksum}")
+        #print(rep_checksum)\
+
+
+        rep_id = pkt_rcvd[(icmp_index +4):(icmp_index +6)]
+        #print(rep_id)
+        rep_seq = pkt_rcvd[(icmp_index +6):(icmp_index+8)]
+        #print(rep_seq)
+        
         # DONE: End of ICMP parsing
         time_left = time_left - how_long_in_select
         if time_left <= 0:
             raise TimeoutError("Request timed out after 1 sec")
+        
+        dest_address = str(dest_ip[0]) + "." + str(dest_ip[1]) + "." + str(dest_ip[2]) + "." + str(dest_ip[3]) 
+        packet_size = total_length[0] * 16**2 + total_length[1]
+        sequence_num = rep_seq[0]
+        #WHERE IS THE REAL RTT???
+        rtt = round(how_long_in_select* 10**3, 2)  #in milliseconds
+
+        reply = (dest_address, packet_size, rtt, ttl, sequence_num)
+        #print(reply)
+        return reply
 
 
 def format_request(req_id: int, seq_num: int) -> bytes:
@@ -122,8 +179,24 @@ def send_request(addr_dst: str, seq_num: int, timeout: int = 1) -> tuple:
 def ping(host: str, pkts: int, timeout: int = 1) -> None:
     """Main loop"""
     # TODO: Implement the main loop
+    print("---Ping",host,"(", socket.gethostbyname(host),") using Python--- \n")
+    num_notdropped = 0
+    rtt_list = []
+    for i in range (1, pkts+1):
+        try:
+            result = send_request(socket.gethostbyname(host), i, timeout)
+            dest_address, packet_size, rtt, ttl, sequence_num = result
+            print(str(packet_size), "bytes from", dest_address, ": icmp_seq=", sequence_num, "TTL=", ttl, "time=", rtt, "ms")
+            num_notdropped +=1
+            rtt_list.append(rtt)
+        except  TimeoutError as te:
+            print(f"No response: Request timed out after", timeout, "sec") 
 
-    # DONE
+    print("\n---",host, "ping statistics---")
+    print(str(pkts), "packets transmitted,", str(num_notdropped), "received,", (str(round(num_notdropped/pkts * 100)) + "% received"))
+    if len(rtt_list) > 0:
+        stat_string = str(min(rtt_list)) + "/" + str(round(mean(rtt_list),2)) + "/" + str(max(rtt_list)) + "/" + str(round(stdev(rtt_list),2))
+        print("rtt min/avg/max/mdev =", stat_string, "ms\n")
     return
 
 
