@@ -70,6 +70,15 @@ def parse_reply(
         time_rcvd = time.time()
         pkt_rcvd, addr = my_socket.recvfrom(1024)
         if addr[0] != addr_dst:
+            version_length = pkt_rcvd[0] #should be 4     
+            ipheader_length = version_length & 0xF
+            icmp_index = ipheader_length * 4
+            rep_type = pkt_rcvd[icmp_index]
+            if rep_type == 3: #type of 3 means Destination Unavailable
+                #in the case of ripe.net
+                #seems to be sent from 80.249.208.71 after 3 unsuccesful requests
+                #not a Wrong Sender error, just ripe.net trying to tell us to shut up
+                raise TimeoutError("Request timed out after 1 sec")
             raise ValueError(f"Wrong sender: {addr[0]}")
         # TODO: Extract ICMP header from the IP packet and parse it
         
