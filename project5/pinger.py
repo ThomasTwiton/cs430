@@ -111,7 +111,7 @@ def parse_reply(
             raise ValueError(f"Wrong code: {ECHO_REPLY_CODE}")
 
 
-
+        #ICMP checksum
         rep_checksum = pkt_rcvd[(icmp_index +2):(icmp_index+4)]
         packet_checksum = rep_checksum[0] * 16 ** 2 + rep_checksum[1]
         #print("Packet's checksum:", packet_checksum)
@@ -121,14 +121,16 @@ def parse_reply(
         #print("Calculated checksum:",calc_checksum)  
         if packet_checksum != calc_checksum:
             raise ValueError(f"Wrong checksum: {calc_checksum}")
-        #print(rep_checksum)\
+        #print(rep_checksum)
 
 
         rep_id = pkt_rcvd[(icmp_index +4):(icmp_index +6)]
         #print(rep_id)
         rep_seq = pkt_rcvd[(icmp_index +6):(icmp_index+8)]
         #print(rep_seq)
-        
+        #rep_timestamp = pkt_rcvd[(icmp_index+8):(icmp_index+16)]
+        #print(rep_timestamp)
+                
         # DONE: End of ICMP parsing
         time_left = time_left - how_long_in_select
         if time_left <= 0:
@@ -137,7 +139,6 @@ def parse_reply(
         dest_address = str(dest_ip[0]) + "." + str(dest_ip[1]) + "." + str(dest_ip[2]) + "." + str(dest_ip[3]) 
         packet_size = total_length[0] * 16**2 + total_length[1]
         sequence_num = rep_seq[0]
-        #WHERE IS THE REAL RTT???
         rtt = round(how_long_in_select* 10**3, 2)  #in milliseconds
 
         reply = (dest_address, packet_size, rtt, ttl, sequence_num)
