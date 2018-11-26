@@ -67,6 +67,8 @@ def send_request(packet: bytes, addr_dst: str, ttl: int) -> socket:
     proto = socket.getprotobyname("icmp")
     my_icmp_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, proto)
 
+    my_icmp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, struct.pack("I", ttl))
+
     my_icmp_socket.sendto(packet, (addr_dst, 1))
 
     return my_icmp_socket
@@ -91,6 +93,13 @@ def receive_reply(open_socket: socket, timeout: int = 1) -> tuple:
 """Parse an ICMP reply"""    
 def parse_reply(packet: bytes) -> bool:
     expected_types = [0, 3, 11]
+
+    icmp_data = packet[28:]
+    icmp_header = packet[20:28]
+    icmp_msg_type, icmp_msg_code, check_sum_rcvd, repl_id, sequence = struct.unpack(
+        "bbHHh", icmp_header
+    )
+
     if icmp_msg_type not in expected_types:
         raise ValueError(
             f"Incorrect type: {icmp_msg_type}. Expected {', '.join([str(x) for x in expected_types])}."
@@ -111,26 +120,39 @@ def parse_reply(packet: bytes) -> bool:
 """Trace the route to a domain"""
 def traceroute(hostname: str) -> None:
     my_id = os.getpid() & 0xFFFF
+    delim = " "
 
-    for att in range(ATTEMPTS):        
-        received_success = 0
-        parsed_success = 0
-        packet = format_request(ECHO_REQUEST_TYPE, ECHO_REQUEST_CODE, my_id, att)
-        for ttl in range(1, MAX_HOPS + 1):
+    dest_addr = socket.gethostbyname(hostname)
+    print(
+        f"Tracing route to {hostname} [{dest_addr}] over a maximum of {MAX_HOPS} hops\n"
+    )    
+    
+    for ttl in range(1, MAX_HOPS + 1):  
+        print(f"{ttl:<5d}", end="")      
+        for att in range(ATTEMPTS):
+            received_success = 0
+            parsed_success = 0
             to_error_msg = ""
             v_error_msg = ""
+
+            packet = format_request(ECHO_REQUEST_TYPE, ECHO_REQUEST_CODE, my_id, att)
             time_sent = time.time()
             my_icmp_socket = send_request(packet, hostname, ttl)
             try:
                 pkt_rcvd, responder = receive_reply(my_icmp_socket, TIMEOUT)
                 received_success += 1
-                parse_reply(pkt_rcvd)
-                parsed_success += 1
             except TimeoutError as te:
                 to_error_msg = str(te)
+                if to_error_msg:
+                    print("{:>5s} {:2s}".format("TIME", " "), end="")
                 continue
+            try:
+                parse_reply(pkt_rcvd)
+                parsed_success += 1
             except ValueError as ve:
                 v_error_msg = str(ve)
+                if v_error_msg:
+                    print("{:>5s} {:2s}".format("ERR", " "), end="")
                 continue
             finally:
                 my_icmp_socket.close()
@@ -138,124 +160,27 @@ def traceroute(hostname: str) -> None:
             time_rcvd = time.time()
             rtt = (time_rcvd - time_sent) * 1000
 
-            print(f"{delim:3s} {to_error_msg}")
-            if to_error_msg:
-                print("{:>5s} {:2s}".format("TIME", " "), end="")
-            print(f"{delim:3s} {v_error_msg}")
-            if v_error_msg:
-                print("{:>5s} {:2s}".format("ERR", " "), end="")
-            print(f"{rtt:>5.0f} ms", end="")
-            print(f"{delim:3s} {responder}")
+            print(f"{rtt:>5.0f} ms", end="")            
+        
+        if to_error_msg:
+            print(f"{delim:3s} {to_error_msg}")        
+        elif v_error_msg:
+             print(f"{delim:3s} {v_error_msg}")        
+        else:               
+            print(f"{delim:3s} {responder}")   
+
+        if responder == dest_addr:
+            break
 
     print("\nTrace complete.")
             
             
-            
-           
-            
-            
-            
-            
-
 def main(args):
+    try:
         traceroute(args[1])
-        print(f"Usage: {args[0]} <hostname>")
-
-
-
-'''*********************************************************'''
-            break
-            
-            
-            
-            
-
-            
-            
-            
-            
-            
-            try:
-            
-        "bbHHh", icmp_header
-        
-        
-        
-        
-        
-        
-        
-        elif v_error_msg:
-        else:
-        f"Tracing route to {hostname} [{dest_addr}] over a maximum of {MAX_HOPS} hops\n"
-        
-        
-        if responder == dest_addr:
-        if to_error_msg:
-        
-        print(f"{ttl:<5d}", end="")
-
-        
-        
-
-        
-        sys.exit(1)
-        
-        
-
-    
-    
-    
-    )
-    )
-    # my_icmp_socket.settimeout(timeout)
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    delim = " "
-    dest_addr = socket.gethostbyname(hostname)
     except IndexError:
-    
-    
-    
-    
-    
-    icmp_data = packet[28:]
-    icmp_header = packet[20:28]
-    icmp_msg_type, icmp_msg_code, check_sum_rcvd, repl_id, sequence = struct.unpack(
-    
-    
-    
-    
-    
-    
-    
-
-    my_icmp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, struct.pack("I", ttl))
-    
-    
-    print(
-    
-    
-   
-    
-    
-    
-    
-    
-   
-    
-    
-    
-    
-    
-    
+        print(f"Usage: {args[0]} <hostname>")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main(sys.argv)
