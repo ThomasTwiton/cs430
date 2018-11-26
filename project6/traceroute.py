@@ -66,27 +66,95 @@ def format_request(icmp_type: int, icmp_code: int, req_id: int, seq_num: int) ->
 def send_request(packet: bytes, addr_dst: str, ttl: int) -> socket:
     proto = socket.getprotobyname("icmp")
     my_icmp_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, proto)
-    
+
     my_icmp_socket.sendto(packet, (addr_dst, 1))
+
+    return my_icmp_socket
 
 """Receive an ICMP reply"""
 def receive_reply(open_socket: socket, timeout: int = 1) -> tuple:
+    time_left = timeout
+    started_select = time.time()
+    what_ready = select.select([open_socket], [], [], time_left)
+    how_long_in_select = time.time() - started_select
+    if not what_ready[0]:
+        raise TimeoutError("Request timed out")
+    
+    pkt_rcvd, addr = open_socket.recvfrom(1024)
+
+    time_left = time_left - how_long_in_select
+    if time_left <= 0:
+        raise TimeoutError("Request timed out")
+
+    return (pkt_rcvd, addr[0])
 
 """Parse an ICMP reply"""    
 def parse_reply(packet: bytes) -> bool:
+    expected_types = [0, 3, 11]
+    if icmp_msg_type not in expected_types:
+        raise ValueError(
+            f"Incorrect type: {icmp_msg_type}. Expected {', '.join([str(x) for x in expected_types])}."
+        )
+
+    pseudo_header = bytearray()
+    pseudo_header.extend(icmp_header[0:2])
+    pseudo_header.append(0)
+    pseudo_header.append(0)    
+    pseudo_header.extend(icmp_header[4:])
+    
+    check_sum_comptd = checksum(pseudo_header + icmp_data)
+    if check_sum_rcvd != socket.htons(check_sum_comptd):
+        raise ValueError(f"Incorrect checksum: {check_sum_rcvd}")
+
+    return True
 
 """Trace the route to a domain"""
 def traceroute(hostname: str) -> None:
     my_id = os.getpid() & 0xFFFF
 
-    for att in range(ATTEMPTS):
+    for att in range(ATTEMPTS):        
+        received_success = 0
+        parsed_success = 0
         packet = format_request(ECHO_REQUEST_TYPE, ECHO_REQUEST_CODE, my_id, att)
         for ttl in range(1, MAX_HOPS + 1):
+            to_error_msg = ""
+            v_error_msg = ""
+            time_sent = time.time()
             my_icmp_socket = send_request(packet, hostname, ttl)
             try:
                 pkt_rcvd, responder = receive_reply(my_icmp_socket, TIMEOUT)
+                received_success += 1
                 parse_reply(pkt_rcvd)
+                parsed_success += 1
+            except TimeoutError as te:
+                to_error_msg = str(te)
+                continue
+            except ValueError as ve:
+                v_error_msg = str(ve)
+                continue
+            finally:
+                my_icmp_socket.close()
 
+            time_rcvd = time.time()
+            rtt = (time_rcvd - time_sent) * 1000
+
+            print(f"{delim:3s} {to_error_msg}")
+            if to_error_msg:
+                print("{:>5s} {:2s}".format("TIME", " "), end="")
+            print(f"{delim:3s} {v_error_msg}")
+            if v_error_msg:
+                print("{:>5s} {:2s}".format("ERR", " "), end="")
+            print(f"{rtt:>5.0f} ms", end="")
+            print(f"{delim:3s} {responder}")
+
+    print("\nTrace complete.")
+            
+            
+            
+           
+            
+            
+            
             
 
 def main(args):
@@ -95,70 +163,23 @@ def main(args):
 
 
 
-    
-    
-    
-    
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                continue
-                continue
-                my_icmp_socket.close()
-                
-                parsed_success += 1
-                
-                print("{:>5s} {:2s}".format("ERR", " "), end="")
-                print("{:>5s} {:2s}".format("TIME", " "), end="")
-                received_success += 1
-                to_error_msg = str(te)
-                v_error_msg = str(ve)
+'''*********************************************************'''
             break
-            except TimeoutError as te:
-            except ValueError as ve:
-            f"Incorrect type: {icmp_msg_type}. Expected {', '.join([str(x) for x in expected_types])}."
-            finally:
-            if to_error_msg:
-            if v_error_msg:
+            
+            
+            
+            
 
             
-            print(f"{delim:3s} {responder}")
-            print(f"{delim:3s} {to_error_msg}")
-            print(f"{delim:3s} {v_error_msg}")
-            print(f"{rtt:>5.0f} ms", end="")
-            rtt = (time_rcvd - time_sent) * 1000
             
             
-            time_rcvd = time.time()
-            time_sent = time.time()
-            to_error_msg = ""
+            
             
             try:
-            v_error_msg = ""
+            
         "bbHHh", icmp_header
         
-        )
+        
         
         
         
@@ -171,14 +192,13 @@ def main(args):
         
         if responder == dest_addr:
         if to_error_msg:
-        parsed_success = 0
+        
         print(f"{ttl:<5d}", end="")
 
-        raise TimeoutError("Request timed out")
-        raise TimeoutError("Request timed out")
-        raise ValueError(
-        raise ValueError(f"Incorrect checksum: {check_sum_rcvd}")
-        received_success = 0
+        
+        
+
+        
         sys.exit(1)
         
         
@@ -190,7 +210,7 @@ def main(args):
     )
     # my_icmp_socket.settimeout(timeout)
     
-    check_sum_comptd = checksum(pseudo_header + icmp_data)
+    
     
     
     
@@ -201,45 +221,40 @@ def main(args):
     delim = " "
     dest_addr = socket.gethostbyname(hostname)
     except IndexError:
-    expected_types = [0, 3, 11]
     
     
     
-    how_long_in_select = time.time() - started_select
+    
+    
     icmp_data = packet[28:]
     icmp_header = packet[20:28]
     icmp_msg_type, icmp_msg_code, check_sum_rcvd, repl_id, sequence = struct.unpack(
-    if check_sum_rcvd != socket.htons(check_sum_comptd):
     
-    if icmp_msg_type not in expected_types:
-    if not what_ready[0]:
-    if time_left <= 0:
+    
+    
+    
+    
     
     
 
     my_icmp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, struct.pack("I", ttl))
     
-    pkt_rcvd, addr = open_socket.recvfrom(1024)
+    
     print(
-    print("\nTrace complete.")
     
-    pseudo_header = bytearray()
-    pseudo_header.append(0)
-    pseudo_header.append(0)
-    pseudo_header.extend(icmp_header[0:2])
-    pseudo_header.extend(icmp_header[4:])
     
-    return (pkt_rcvd, addr[0])
+   
     
-    return my_icmp_socket
     
-    return True
-    started_select = time.time()
     
-    time_left = time_left - how_long_in_select
-    time_left = timeout
     
-    what_ready = select.select([open_socket], [], [], time_left)
+    
+   
+    
+    
+    
+    
+    
     
 
 if __name__ == "__main__":
