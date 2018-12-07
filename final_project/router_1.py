@@ -15,6 +15,7 @@ HOST_ID = os.path.splitext(__file__)[0].split("_")[-1]
 THIS_NODE = f"127.0.0.{HOST_ID}"
 PORT = 4300
 NEIGHBORS = set()
+CONNECTED_NEIGHBORS = set()
 ROUTING_TABLE = {}
 TIMEOUT = 5
 MESSAGES = [
@@ -87,18 +88,70 @@ def format_update():
 
 def parse_update(msg, neigh_addr):
     """Update routing table"""
-    raise NotImplementedError
+    updated = False
+    for i in range (1, len(msg),5):
+        record = msg[i:i+5]
+        #print(record)
+        address = []
+        for j in range(4):
+            byte = record[j]
+            address.append(str(byte))
+        address = '.'.join(address) 
+        #print(address)
+
+        cost = int(record[4])
+        #print(cost)
+
+        if address == THIS_NODE:
+            #print("Don't do it")
+            pass
+        #if we didn't know how to get here before, add it to the routing table, assume the neighbor who told us about this node knows best
+        elif address not in ROUTING_TABLE:
+            ROUTING_TABLE[address] = [cost +ROUTING_TABLE[neigh_addr[0]][0], neigh_addr[0]]
+            updated = True
+            print(time.ctime()[-13:-5], "| Table updated with information from", neigh_addr[0])
+        else:
+            mycost = ROUTING_TABLE[address][0]
+            newcost =cost + ROUTING_TABLE[neigh_addr[0]][0]
+
+            if newcost < mycost:
+                ROUTING_TABLE[address][0] = newcost
+                ROUTING_TABLE[address][1] = neigh_addr[0]
+                updated = True
+                print(time.ctime()[-13:-5], "| Table updated with information from", neigh_addr[0])
+
+    return updated
+    
+
 
 
 def send_update(node):
     """Send update"""
     update = format_update()
-    router.sendto(update, node)
+    router = socket(AF_INET, SOCK_DGRAM)
+    router.bind((THIS_NODE, PORT))
+    dest = (node, int('430'+node[-1]))
+    #print(dest)
+    router.sendto(update, (node, int('430'+node[-1])))
+    router.close()
 
 
 def format_hello(msg_txt, src_node, dst_node):
     """Format hello message"""
-    raise NotImplementedError
+    hello = bytearray()
+    hello.extend([1])
+
+    src_address = src_node.split(".")
+    for byte in src_address:
+        hello.extend([int(byte)])
+
+    dst_address = dst_node.split(".")
+    for byte in dst_address:
+        hello.extend([int(byte)])
+
+    hello.extend(mst_txt.encode())
+
+    return hello
 
 
 def parse_hello(msg):
@@ -108,7 +161,11 @@ def parse_hello(msg):
 
 def send_hello(msg_txt, src_node, dst_node):
     """Send a message"""
-    raise NotImplementedError
+    hello = format_hello(msg_txt, src_node, dst_node)
+    router = socket(AF_INET, SOCK_DGRAM)
+    router.bind((THIS_NODE, PORT))    
+    router.sendto(update, (dst_node, PORT + int(dst_node[-1])))
+    router.close()
 
 
 def print_status():
@@ -135,8 +192,41 @@ def main(args: list):
 
     print_status()
 
-    update = format_update()
+    dummy = socket(AF_INET, SOCK_DGRAM) 
+    
+    inputs = [router]
+    outputs = [dummy]
 
+    while inputs:
+        readable, writeable, exceptionable = select.select(inputs, outputs, [], TIMEOUT)
+
+        for r in readable:
+            #print('Reading')
+            message, addr = r.recvfrom(2048)
+            CONNECTED_NEIGHBORS.add(addr)
+            if message[0] == 0:
+                #print(addr)
+                updated = parse_update(message, addr)
+                if updated:
+                    print_status() 
+                    dummy = socket(AF_INET, SOCK_DGRAM)                    
+                    outputs.append(dummy)
+            else:
+                print("Something is wrong")
+
+        for r in writeable:
+            #print("Writing")
+            r.close()
+            outputs.remove(r)
+            for neighbor in NEIGHBORS:
+                #print("Sending update to", neighbor)
+                send_update(neighbor)
+
+        for neighbor in NEIGHBORS:
+                if neighbor not in CONNECTED_NEIGHBORS:
+                    dummy = socket(AF_INET, SOCK_DGRAM)                    
+                    outputs.append(dummy)
+                      
     router.close()
 
 
