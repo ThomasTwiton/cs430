@@ -261,7 +261,7 @@ def main(args: list):
                 send_hello(msg_txt, THIS_NODE, dst_node)
                 hellos += 1     
 
-        #time.sleep(1) 
+        time.sleep(1) 
                       
     router.close()
 
