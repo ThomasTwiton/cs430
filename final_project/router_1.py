@@ -149,22 +149,46 @@ def format_hello(msg_txt, src_node, dst_node):
     for byte in dst_address:
         hello.extend([int(byte)])
 
-    hello.extend(mst_txt.encode())
+    hello.extend(msg_txt.encode())
 
     return hello
 
 
 def parse_hello(msg):
     """Send the message to an appropriate next hop"""
-    raise NotImplementedError
+    src_bytes = msg[1:5]
+    src_address = []
+    for byte in src_bytes:
+        src_address.append(str(byte))
+    src_address = ".".join(src_address)
+
+    dst_bytes = msg[5:9]
+    dst_address = []
+    for byte in dst_bytes:
+        dst_address.append(str(byte))
+    dst_address = ".".join(dst_address)
+
+    msg_txt = msg[9:].decode()
+
+    if dst_address == THIS_NODE:
+        #this message belongs to us
+        #print("THIS BELONGS TO US")
+        print(time.ctime()[-13:-5], "| Received", msg_txt, "from", src_address)
+    else:
+        #print("FORWARDING ALONG")
+        send_hello(msg_txt, src_address, dst_address)
 
 
 def send_hello(msg_txt, src_node, dst_node):
     """Send a message"""
     hello = format_hello(msg_txt, src_node, dst_node)
     router = socket(AF_INET, SOCK_DGRAM)
-    router.bind((THIS_NODE, PORT))    
-    router.sendto(update, (dst_node, PORT + int(dst_node[-1])))
+    router.bind((THIS_NODE, PORT))   
+    node_tosendto = ROUTING_TABLE[dst_node][1]  #via
+    print(time.ctime()[-13:-5], "| Sending", msg_txt, "to", dst_node, "via", node_tosendto)
+    port_tosendto = PORT + int(node_tosendto[-1])
+    #print(port_tosendto)
+    router.sendto(hello, (node_tosendto, port_tosendto))
     router.close()
 
 
@@ -196,6 +220,7 @@ def main(args: list):
     
     inputs = [router]
     outputs = [dummy]
+    hellos = 0
 
     while inputs:
         readable, writeable, exceptionable = select.select(inputs, outputs, [], TIMEOUT)
@@ -203,7 +228,7 @@ def main(args: list):
         for r in readable:
             #print('Reading')
             message, addr = r.recvfrom(2048)
-            CONNECTED_NEIGHBORS.add(addr)
+            CONNECTED_NEIGHBORS.add(addr[0])
             if message[0] == 0:
                 #print(addr)
                 updated = parse_update(message, addr)
@@ -211,6 +236,8 @@ def main(args: list):
                     print_status() 
                     dummy = socket(AF_INET, SOCK_DGRAM)                    
                     outputs.append(dummy)
+            elif message[0] == 1:
+                parse_hello(message)
             else:
                 print("Something is wrong")
 
@@ -223,9 +250,18 @@ def main(args: list):
                 send_update(neighbor)
 
         for neighbor in NEIGHBORS:
-                if neighbor not in CONNECTED_NEIGHBORS:
-                    dummy = socket(AF_INET, SOCK_DGRAM)                    
-                    outputs.append(dummy)
+            if neighbor not in CONNECTED_NEIGHBORS:
+                dummy = socket(AF_INET, SOCK_DGRAM)                    
+                outputs.append(dummy)
+
+        if NEIGHBORS.issubset(CONNECTED_NEIGHBORS) and hellos < 2:
+            msg_txt = random.choice(MESSAGES)
+            dst_node = random.choice(tuple(CONNECTED_NEIGHBORS))
+            if dst_node in CONNECTED_NEIGHBORS:
+                send_hello(msg_txt, THIS_NODE, dst_node)
+                hellos += 1     
+
+        #time.sleep(1) 
                       
     router.close()
 
